@@ -32,10 +32,12 @@
 
 详细技术分析请参阅 [SECURITY_FIXES.md](SECURITY_FIXES.md)。
 
-### 部署前必须配置
+### 开箱即用
+
+无需手动配置密码和密钥，系统首次启动时会自动生成随机值并输出到启动日志中。如需自定义，可通过环境变量覆盖：
 
 ```bash
-# 必须设置以下环境变量，否则服务将拒绝启动或使用随机密码
+# 可选配置（不设置则自动生成随机值，启动日志中可查看）
 export ADMIN_PASSWORD="你的强密码"
 export JWT_SECRET_KEY="$(openssl rand -base64 32)"
 export XIANYU_API_SECRET_KEY="$(openssl rand -base64 32)"
@@ -115,12 +117,11 @@ export XIANYU_API_SECRET_KEY="$(openssl rand -base64 32)"
 git clone https://github.com/Otis0408/xianyu-auto-reply-security-fix.git
 cd xianyu-auto-reply-security-fix
 
-# 2. 配置环境变量（必须！）
-export ADMIN_PASSWORD="你的强密码"
-export JWT_SECRET_KEY="$(openssl rand -base64 32)"
-
-# 3. 启动服务
+# 2. 启动服务（密码和密钥会自动生成，查看日志获取）
 docker compose up -d --build
+
+# 3. 查看自动生成的管理员密码
+docker compose logs | grep "管理员密码"
 
 # 4. 访问系统
 # http://localhost:9000
@@ -152,18 +153,14 @@ pip install -r requirements.txt
 playwright install chromium
 playwright install-deps chromium  # 仅 Linux 需要
 
-# 5. 配置环境变量（必须！）
-export ADMIN_PASSWORD="你的强密码"
-
-# 6. 启动系统
+# 5. 启动系统（密码会自动生成，查看终端输出获取）
 python Start.py
 
-# 7. 访问系统
+# 6. 访问系统
 # http://localhost:8090
 ```
 
-> 管理员账号：`admin`，密码为你设置的 `ADMIN_PASSWORD` 环境变量值。
-> 如未设置，系统会自动生成随机密码并在启动日志中显示，请注意查看。
+> 管理员账号：`admin`，密码在启动日志中显示。也可通过 `ADMIN_PASSWORD` 环境变量自定义。
 
 > 本地运行请确保已安装 Node.js，否则 `PyExecJS` 相关功能无法正常使用。
 
@@ -185,7 +182,7 @@ python Start.py
 API_HOST=127.0.0.1     # 如需外部访问，请配合反向代理使用
 API_PORT=8090
 
-# 安全相关（必须配置）
+# 安全相关（可选，不设置则自动生成随机值）
 ADMIN_PASSWORD=你的强密码
 JWT_SECRET_KEY=随机密钥
 XIANYU_API_SECRET_KEY=API密钥
@@ -211,7 +208,7 @@ SECRET_ENCRYPTION_KEY=your-secret-key
   - Docker Compose 默认配置: http://localhost:9000
   - Docker Compose 国内配置: http://localhost:8000
   - 本地运行: http://localhost:8090
-- **管理员账号**：`admin`，密码为环境变量 `ADMIN_PASSWORD` 的值
+- **管理员账号**：`admin`，密码查看启动日志或环境变量 `ADMIN_PASSWORD`
 - **API文档**: 对应地址 + `/docs`
 
 ## 系统架构

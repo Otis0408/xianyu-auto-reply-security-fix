@@ -51,8 +51,13 @@ KEYWORDS_FILE = Path(__file__).parent / "回复关键字.txt"
 
 # 简单的用户认证配置
 ADMIN_USERNAME = "admin"
-# [SECURITY FIX] 使用环境变量设置初始密码，不再硬编码弱密码
-DEFAULT_ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", secrets.token_urlsafe(16))  # 未配置时生成随机密码
+# [SECURITY FIX] 使用环境变量或自动生成随机密码，不再硬编码弱密码
+if os.getenv("ADMIN_PASSWORD"):
+    DEFAULT_ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+else:
+    DEFAULT_ADMIN_PASSWORD = secrets.token_urlsafe(16)
+    logger.warning(f"未设置 ADMIN_PASSWORD 环境变量，已自动生成管理员密码: {DEFAULT_ADMIN_PASSWORD}")
+    logger.warning("请记录此密码，或设置 ADMIN_PASSWORD 环境变量后重启")
 SESSION_TOKENS = {}  # 存储会话token: {token: {'user_id': int, 'username': str, 'timestamp': float}}
 TOKEN_EXPIRE_TIME = 24 * 60 * 60  # token过期时间：24小时
 
@@ -1802,8 +1807,12 @@ async def register(request: RegisterRequest):
 
 # 固定的API秘钥（生产环境中应该从配置文件或环境变量读取）
 # 注意：现在从系统设置中读取QQ回复消息秘钥
-# [SECURITY FIX] 移除硬编码API密钥，强制从系统设置读取或使用环境变量
-API_SECRET_KEY = os.getenv("XIANYU_API_SECRET_KEY", "")  # 必须通过环境变量或系统设置配置
+# [SECURITY FIX] 移除硬编码API密钥，使用环境变量或自动生成
+if os.getenv("XIANYU_API_SECRET_KEY"):
+    API_SECRET_KEY = os.getenv("XIANYU_API_SECRET_KEY")
+else:
+    API_SECRET_KEY = secrets.token_urlsafe(32)
+    logger.warning(f"未设置 XIANYU_API_SECRET_KEY 环境变量，已自动生成API密钥: {API_SECRET_KEY}")
 
 class SendMessageRequest(BaseModel):
     api_key: str
