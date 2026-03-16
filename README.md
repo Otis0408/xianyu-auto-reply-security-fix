@@ -34,13 +34,29 @@
 
 ### 开箱即用
 
-无需手动配置密码和密钥，系统首次启动时会自动生成随机值并输出到启动日志中。如需自定义，可通过环境变量覆盖：
+无需手动配置密码和密钥，系统首次启动时会自动生成随机值，并以醒目的方式回显到终端：
+
+```
+==========================================================
+       闲鱼管理系统 - 安全加固版 已启动
+==========================================================
+  访问地址:     http://127.0.0.1:8090
+  管理员账号:   admin
+  管理员密码:   aB3xK9mP_qR7wZ2y
+  API 密钥:     dF5hJ8nQ...tV4x
+----------------------------------------------------------
+  提示: 可通过环境变量 ADMIN_PASSWORD 自定义密码
+  提示: 首次登录后建议在管理界面修改密码
+==========================================================
+```
+
+如需自定义，可通过环境变量覆盖：
 
 ```bash
-# 可选配置（不设置则自动生成随机值，启动日志中可查看）
-export ADMIN_PASSWORD="你的强密码"
-export JWT_SECRET_KEY="$(openssl rand -base64 32)"
-export XIANYU_API_SECRET_KEY="$(openssl rand -base64 32)"
+# 可选配置（不设置则自动生成随机值）
+export ADMIN_PASSWORD="你的强密码"                          # 管理后台登录密码
+export JWT_SECRET_KEY="$(openssl rand -base64 32)"          # 会话签名密钥
+export XIANYU_API_SECRET_KEY="$(openssl rand -base64 32)"   # QQ机器人等外部系统调用发消息接口的认证密钥，不用可忽略
 ```
 
 ---
@@ -182,10 +198,10 @@ python Start.py
 API_HOST=127.0.0.1     # 如需外部访问，请配合反向代理使用
 API_PORT=8090
 
-# 安全相关（可选，不设置则自动生成随机值）
-ADMIN_PASSWORD=你的强密码
-JWT_SECRET_KEY=随机密钥
-XIANYU_API_SECRET_KEY=API密钥
+# 安全相关（可选，不设置则自动生成随机值，启动时回显到终端）
+ADMIN_PASSWORD=你的强密码              # 管理后台登录密码
+JWT_SECRET_KEY=随机密钥                # 会话Token签名密钥
+XIANYU_API_SECRET_KEY=API密钥          # 外部系统（如QQ机器人）调用发消息接口的认证密钥，不用可忽略
 
 # 数据存储
 DB_PATH=/app/data/xianyu_data.db
