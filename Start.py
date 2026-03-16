@@ -442,6 +442,29 @@ from db_manager import db_manager
 from file_log_collector import setup_file_logging
 
 
+def _print_credentials():
+    """启动时回显安全凭据，方便用户查看"""
+    from reply_server import DEFAULT_ADMIN_PASSWORD, API_SECRET_KEY, ADMIN_USERNAME
+    api_conf = AUTO_REPLY.get('api', {})
+    host = os.getenv('API_HOST', api_conf.get('host', '127.0.0.1'))
+    port = int(os.getenv('API_PORT', api_conf.get('port', 8090)))
+    url = f"http://{host}:{port}"
+
+    print("")
+    print("=" * 58)
+    print("       闲鱼管理系统 - 安全加固版 已启动")
+    print("=" * 58)
+    print(f"  访问地址:     {url}")
+    print(f"  管理员账号:   {ADMIN_USERNAME}")
+    print(f"  管理员密码:   {DEFAULT_ADMIN_PASSWORD}")
+    print(f"  API 密钥:     {API_SECRET_KEY[:8]}...{API_SECRET_KEY[-4:]}" if len(API_SECRET_KEY) > 12 else f"  API 密钥:     {API_SECRET_KEY}")
+    print("-" * 58)
+    print("  提示: 可通过环境变量 ADMIN_PASSWORD 自定义密码")
+    print("  提示: 首次登录后建议在管理界面修改密码")
+    print("=" * 58)
+    print("")
+
+
 def _start_api_server():
     """后台线程启动 FastAPI 服务"""
     api_conf = AUTO_REPLY.get('api', {})
@@ -575,6 +598,9 @@ async def main():
     print("启动 API 服务线程...")
     threading.Thread(target=_start_api_server, daemon=True).start()
     print("API 服务线程已启动")
+
+    # 回显安全凭据，方便用户查看
+    _print_credentials()
 
     # 阻塞保持运行
     print("主程序启动完成，保持运行...")
