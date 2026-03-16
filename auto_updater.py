@@ -581,11 +581,26 @@ class AutoUpdater:
                 
                 # 备份并安装
                 local_path = self.app_dir / file_update.path
-                
+
+                # [SECURITY FIX] 防止路径穿越攻击 (e.g. path="../../etc/crontab")
+                try:
+                    resolved = local_path.resolve()
+                    app_resolved = self.app_dir.resolve()
+                    if not str(resolved).startswith(str(app_resolved) + os.sep) and resolved != app_resolved:
+                        logger.error(f"路径穿越攻击被阻止: {file_update.path} -> {resolved}")
+                        self._update_progress(
+                            status=UpdateStatus.FAILED,
+                            error=f"安全错误: 文件路径越界: {file_update.path}"
+                        )
+                        return False, updated_files, needs_restart
+                except Exception as e:
+                    logger.error(f"路径安全检查失败: {file_update.path}, {e}")
+                    return False, updated_files, needs_restart
+
                 # 备份旧文件
                 if not self._backup_file(local_path):
                     logger.warning(f"备份失败，继续更新: {file_update.path}")
-                
+
                 # 确保目录存在
                 local_path.parent.mkdir(parents=True, exist_ok=True)
                 

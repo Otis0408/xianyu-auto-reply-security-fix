@@ -294,6 +294,7 @@ build/
 !CHANGELOG.md
 !CONTRIBUTING.md
 !LICENSE.md
+!SECURITY_FIXES.md
 !docs/*.md
 
 # 临时配置文件

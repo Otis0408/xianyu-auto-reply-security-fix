@@ -116,9 +116,10 @@ AUTO_REPLY = config.get('AUTO_REPLY', {
 })
 MANUAL_MODE = config.get('MANUAL_MODE', {})
 LOG_CONFIG = config.get('LOG_CONFIG', {})
+# [SECURITY FIX] 移除硬编码的第三方回调URL，需通过配置文件显式设置
 YIFAN_API = config.get('YIFAN_API', {
-    'callback_url': 'http://116.196.116.76/yifan.php',
-    'query_url': 'http://116.196.116.76/yifan.php'
+    'callback_url': '',
+    'query_url': ''
 })
 _cookies_raw = config.get('COOKIES', [])
 if isinstance(_cookies_raw, list):

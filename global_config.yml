@@ -10,7 +10,7 @@ APP_CONFIG:
 AUTO_REPLY:
   api:
     enabled: false  # 禁用API回复，使用AI回复或关键词回复
-    host: 0.0.0.0  # 绑定所有网络接口，支持IP访问
+    host: 127.0.0.1  # [SECURITY FIX] 默认仅本地访问，外部访问请用反向代理
     port: 8090     # Web服务端口
     timeout: 10
     url: http://localhost:8090/xianyu/reply  # 修复URL地址

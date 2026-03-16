@@ -1116,7 +1116,13 @@ Cookie数量: {cookie_count}
 
             if not admin_exists:
                 # 首次创建admin用户，设置默认密码和管理员权限
-                default_password_hash = hashlib.sha256("admin123".encode()).hexdigest()
+                # [SECURITY FIX] 从环境变量读取初始密码，不再使用硬编码弱密码
+                import secrets as _secrets
+                _init_pwd = os.getenv('ADMIN_PASSWORD', _secrets.token_urlsafe(16))
+                default_password_hash = hashlib.sha256(_init_pwd.encode()).hexdigest()
+                if not os.getenv('ADMIN_PASSWORD'):
+                    logger.warning(f"未设置ADMIN_PASSWORD环境变量，已生成随机管理员密码: {_init_pwd}")
+                    logger.warning("请立即记录此密码或设置ADMIN_PASSWORD环境变量后重启")
                 # 检查is_admin列是否存在
                 try:
                     cursor.execute('SELECT is_admin FROM users LIMIT 1')
@@ -3598,6 +3604,15 @@ Cookie数量: {cookie_count}
                     if not rows:
                         continue
 
+                    # [SECURITY FIX] 验证列名，防止SQL注入
+                    # 列名只允许字母、数字、下划线，禁止其他字符
+                    import re as _re
+                    _col_pattern = _re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+                    for col in columns:
+                        if not _col_pattern.match(col):
+                            logger.error(f"备份导入检测到非法列名: {col}，可能是SQL注入攻击")
+                            raise ValueError(f"非法列名: {col}")
+
                     # 如果是用户级导入，需要确保cookies表的user_id正确
                     if user_id is not None and table_name == 'cookies':
                         # 更新所有导入的cookies的user_id
@@ -3610,14 +3625,15 @@ Cookie数量: {cookie_count}
 
                     # 构建插入语句
                     placeholders = ','.join(['?' for _ in columns])
+                    safe_columns = ','.join(f'"{col}"' for col in columns)
 
                     if table_name == 'system_settings':
                         # 系统设置需要特殊处理，避免覆盖管理员密码
                         for row in rows:
                             if len(row) >= 1 and row[0] != 'admin_password_hash':
-                                cursor.execute(f"INSERT INTO {table_name} ({','.join(columns)}) VALUES ({placeholders})", row)
+                                cursor.execute(f"INSERT INTO {table_name} ({safe_columns}) VALUES ({placeholders})", row)
                     else:
-                        cursor.executemany(f"INSERT INTO {table_name} ({','.join(columns)}) VALUES ({placeholders})", rows)
+                        cursor.executemany(f"INSERT INTO {table_name} ({safe_columns}) VALUES ({placeholders})", rows)
 
                 # 提交事务
                 self.conn.commit()

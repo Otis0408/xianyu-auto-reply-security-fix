@@ -1736,55 +1736,17 @@ class XianyuLive:
             return None
 
     async def _call_comment_api(self, order_id: str, comment: str) -> dict:
-        """调用好评接口"""
-        import aiohttp
-        
-        try:
-            # 好评接口地址
-            comment_api_url = "http://119.29.64.68:8081/comment"
-            
-            # 获取当前账号的cookie
-            cookie_str = self.cookies_str
-            
-            payload = {
-                "cookie_str": cookie_str,
-                "order_id": order_id,
-                "comment": comment
-            }
-            
-            headers = {
-                "accept": "application/json",
-                "Content-Type": "application/json"
-            }
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.post(comment_api_url, json=payload, headers=headers, timeout=30) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        return {
-                            "success": result.get("status") == "success",
-                            "message": result.get("message", "好评成功")
-                        }
-                    else:
-                        error_text = await response.text()
-                        logger.error(f"【{self.cookie_id}】好评接口返回错误: status={response.status}, body={error_text}")
-                        return {
-                            "success": False,
-                            "message": f"接口返回错误: {response.status}"
-                        }
-                        
-        except asyncio.TimeoutError:
-            logger.error(f"【{self.cookie_id}】好评接口请求超时")
-            return {
-                "success": False,
-                "message": "请求超时"
-            }
-        except Exception as e:
-            logger.error(f"【{self.cookie_id}】调用好评接口异常: {self._safe_str(e)}")
-            return {
-                "success": False,
-                "message": str(e)
-            }
+        """调用好评接口
+
+        [SECURITY FIX] 已移除向第三方IP(119.29.64.68)发送Cookie的行为。
+        原代码会将用户Cookie明文通过HTTP发送到外部服务器，存在严重的凭据泄露风险。
+        如需好评功能，请在本地实现或配置可信的API地址。
+        """
+        logger.warning(f"【{self.cookie_id}】好评接口已禁用：原实现会将Cookie发送到第三方服务器，存在安全风险")
+        return {
+            "success": False,
+            "message": "好评接口已禁用（安全原因：原实现会泄露Cookie到第三方服务器）"
+        }
 
     def can_auto_delivery(self, order_id: str) -> bool:
         """检查是否可以进行自动发货（防重复发货）- 基于订单ID"""

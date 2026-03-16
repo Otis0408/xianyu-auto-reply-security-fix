@@ -51,7 +51,8 @@ KEYWORDS_FILE = Path(__file__).parent / "回复关键字.txt"
 
 # 简单的用户认证配置
 ADMIN_USERNAME = "admin"
-DEFAULT_ADMIN_PASSWORD = "admin123"  # 系统初始化时的默认密码
+# [SECURITY FIX] 使用环境变量设置初始密码，不再硬编码弱密码
+DEFAULT_ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", secrets.token_urlsafe(16))  # 未配置时生成随机密码
 SESSION_TOKENS = {}  # 存储会话token: {token: {'user_id': int, 'username': str, 'timestamp': float}}
 TOKEN_EXPIRE_TIME = 24 * 60 * 60  # token过期时间：24小时
 
@@ -769,7 +770,11 @@ if not os.path.exists(uploads_dir):
 # 健康检查端点
 @app.get('/health')
 async def health_check():
-    """健康检查端点，用于Docker健康检查和负载均衡器"""
+    """健康检查端点，用于Docker健康检查和负载均衡器
+
+    [SECURITY FIX] 移除了系统详细信息（CPU、内存等），防止信息泄露。
+    只返回服务健康状态，不暴露内部架构细节。
+    """
     try:
         # 检查Cookie管理器状态
         manager_status = "ok" if cookie_manager.manager is not None else "error"
@@ -782,36 +787,17 @@ async def health_check():
         except Exception:
             db_status = "error"
 
-        # 获取系统状态
-        import psutil
-        cpu_percent = psutil.cpu_percent(interval=1)
-        memory_info = psutil.virtual_memory()
+        is_healthy = manager_status == "ok" and db_status == "ok"
 
-        status = {
-            "status": "healthy" if manager_status == "ok" and db_status == "ok" else "unhealthy",
-            "timestamp": time.time(),
-            "services": {
-                "cookie_manager": manager_status,
-                "database": db_status
-            },
-            "system": {
-                "cpu_percent": cpu_percent,
-                "memory_percent": memory_info.percent,
-                "memory_available": memory_info.available
-            }
-        }
+        if not is_healthy:
+            raise HTTPException(status_code=503, detail={"status": "unhealthy"})
 
-        if status["status"] == "unhealthy":
-            raise HTTPException(status_code=503, detail=status)
+        return {"status": "healthy"}
 
-        return status
-
-    except Exception as e:
-        return {
-            "status": "unhealthy",
-            "timestamp": time.time(),
-            "error": str(e)
-        }
+    except HTTPException:
+        raise
+    except Exception:
+        return {"status": "unhealthy"}
 
 
 # 重定向根路径到登录页面
@@ -831,9 +817,8 @@ async def root():
 async def generate_captcha(request: Request):
     """生成验证码图片"""
     # 获取客户端IP
-    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
-                request.headers.get('X-Real-IP', '') or \
-                request.client.host if request.client else 'unknown'
+    # [SECURITY FIX] 优先使用直连IP，X-Forwarded-For可被伪造绕过速率限制
+    client_ip = request.client.host if request.client else 'unknown'
     
     # 清理过期验证码
     cleanup_expired_captchas()
@@ -868,9 +853,8 @@ async def generate_captcha(request: Request):
 @app.get('/captcha/check-required')
 async def check_captcha_required(request: Request):
     """检查是否需要验证码"""
-    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
-                request.headers.get('X-Real-IP', '') or \
-                request.client.host if request.client else 'unknown'
+    # [SECURITY FIX] 优先使用直连IP，X-Forwarded-For可被伪造绕过速率限制
+    client_ip = request.client.host if request.client else 'unknown'
     
     required = is_captcha_required(client_ip)
     failure_count = get_ip_failure_count(client_ip)
@@ -1000,9 +984,8 @@ async def login(login_request: LoginRequest, request: Request):
     from db_manager import db_manager
     
     # 获取客户端IP（考虑代理）
-    client_ip = request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
-                request.headers.get('X-Real-IP', '') or \
-                request.client.host if request.client else 'unknown'
+    # [SECURITY FIX] 优先使用直连IP，X-Forwarded-For可被伪造绕过速率限制
+    client_ip = request.client.host if request.client else 'unknown'
     
     # 定期清理过期记录
     cleanup_login_trackers()
@@ -1819,7 +1802,8 @@ async def register(request: RegisterRequest):
 
 # 固定的API秘钥（生产环境中应该从配置文件或环境变量读取）
 # 注意：现在从系统设置中读取QQ回复消息秘钥
-API_SECRET_KEY = "xianyu_api_secret_2024"  # 保留作为后备
+# [SECURITY FIX] 移除硬编码API密钥，强制从系统设置读取或使用环境变量
+API_SECRET_KEY = os.getenv("XIANYU_API_SECRET_KEY", "")  # 必须通过环境变量或系统设置配置
 
 class SendMessageRequest(BaseModel):
     api_key: str
@@ -1878,13 +1862,8 @@ async def send_message_api(request: SendMessageRequest):
                 message="API秘钥不能为空"
             )
 
-        # 特殊测试秘钥处理
-        if cleaned_api_key == "zhinina_test_key":
-            logger.info("使用测试秘钥，直接返回成功")
-            return SendMessageResponse(
-                success=True,
-                message="接口验证成功"
-            )
+        # [SECURITY FIX] 移除硬编码测试密钥绕过，生产环境不应有后门
+        # 原代码: if cleaned_api_key == "zhinina_test_key": 直接返回成功
 
         # 验证API秘钥
         if not verify_api_key(cleaned_api_key):
@@ -4247,8 +4226,11 @@ def get_system_settings(current_user: Dict[str, Any] = Depends(get_current_user)
 
 
 @app.put('/system-settings/{key}')
-def update_system_setting(key: str, setting_data: SystemSettingIn, current_user: Dict[str, Any] = Depends(get_current_user)):
-    """更新系统设置"""
+def update_system_setting(key: str, setting_data: SystemSettingIn, current_user: Dict[str, Any] = Depends(verify_admin_token)):
+    """更新系统设置
+
+    [SECURITY FIX] 改为需要管理员权限(verify_admin_token)，原代码仅需普通用户登录即可修改系统设置。
+    """
     from db_manager import db_manager
     try:
         # 禁止直接修改密码哈希
@@ -5527,7 +5509,7 @@ def delete_keyword_by_index(cid: str, index: int, current_user: Dict[str, Any] =
 
 
 @app.get("/debug/keywords-table-info")
-def debug_keywords_table_info(current_user: Dict[str, Any] = Depends(get_current_user)):
+def debug_keywords_table_info(current_user: Dict[str, Any] = Depends(verify_admin_token)):
     """调试：检查keywords表结构"""
     try:
         import sqlite3
